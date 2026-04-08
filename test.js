@@ -161,7 +161,9 @@ describe("Zombie Apocalypse", () => {
       const remaining = [...sim.creatures];
       console.log(
         "Remaining creatures:",
-        remaining.length > 0 ? remaining.map((k) => `(${k})`).join(", ") : "None",
+        remaining.length > 0
+          ? remaining.map((k) => `(${k})`).join(", ")
+          : "None",
       );
     });
   });
@@ -272,7 +274,9 @@ describe("16x16 grid simulation", () => {
     const remaining16 = [...sim.creatures];
     console.log(
       "16x16 remaining creatures:",
-      remaining16.length > 0 ? remaining16.map((k) => `(${k})`).join(", ") : "None",
+      remaining16.length > 0
+        ? remaining16.map((k) => `(${k})`).join(", ")
+        : "None",
     );
   });
 
@@ -321,7 +325,9 @@ describe("32x32 grid simulation", () => {
     const remaining32 = [...sim.creatures];
     console.log(
       "32x32 remaining creatures:",
-      remaining32.length > 0 ? remaining32.map((k) => `(${k})`).join(", ") : "None",
+      remaining32.length > 0
+        ? remaining32.map((k) => `(${k})`).join(", ")
+        : "None",
     );
   });
 
