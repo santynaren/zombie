@@ -578,7 +578,7 @@
       return;
     }
 
-    const sim = createSimulation(premise);
+    const sim = virtualWorld(premise);
 
     log('🧟 Welcome to the Zombie Apocalypse!', 'log-news');
     await delay(getDelay());
@@ -666,7 +666,7 @@
   // ── Initialize with default grid ──
   (function init() {
     const premise = parseInputs();
-    const sim = createSimulation(premise);
+    const sim = virtualWorld(premise);
     renderGrid(sim, [sim.zombieQueue[0]]);
   })();
 
