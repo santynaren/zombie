@@ -441,6 +441,8 @@
     <div class="summary-panel" id="summaryPanel">
       <h3>Final Zombie Positions</h3>
       <div class="summary-positions" id="summaryPositions"></div>
+      <h3 style="margin-top: 12px;">Remaining Creatures</h3>
+      <div class="summary-positions" id="summaryCreatures"></div>
     </div>
   </div>
 
@@ -623,6 +625,31 @@
       tag.textContent = `(${pos.x}, ${pos.y})`;
       elSummaryPositions.appendChild(tag);
     }
+
+    const elSummaryCreatures = document.getElementById('summaryCreatures');
+    elSummaryCreatures.innerHTML = '';
+    const remaining = [...sim.creatures];
+    if (remaining.length === 0) {
+      log('🐾 Remaining creatures: None', 'log-result');
+      const none = document.createElement('span');
+      none.className = 'summary-pos';
+      none.style.borderColor = '#8b949e';
+      none.style.color = '#8b949e';
+      none.textContent = 'None';
+      elSummaryCreatures.appendChild(none);
+    } else {
+      log(`🐾 Remaining creatures: ${remaining.map(k => `(${k})`).join(', ')}`, 'log-result');
+      for (const key of remaining) {
+        const tag = document.createElement('span');
+        tag.className = 'summary-pos';
+        tag.style.borderColor = '#3fb950';
+        tag.style.color = '#3fb950';
+        tag.style.background = '#1a3a1a';
+        tag.textContent = `(${key})`;
+        elSummaryCreatures.appendChild(tag);
+      }
+    }
+
     elSummaryPanel.classList.add('visible');
 
     elStepInfo.innerHTML = `<strong>Simulation complete</strong> — ${sim.finalPositions.length} zombies`;

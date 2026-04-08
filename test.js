@@ -157,6 +157,12 @@ describe("Zombie Apocalypse", () => {
 
       const positions = sim.finalPositions.map((p) => `(${p.x},${p.y})`);
       console.log("Final positions:", positions.join(", "));
+
+      const remaining = [...sim.creatures];
+      console.log(
+        "Remaining creatures:",
+        remaining.length > 0 ? remaining.map((k) => `(${k})`).join(", ") : "None",
+      );
     });
   });
 });
@@ -263,6 +269,11 @@ describe("16x16 grid simulation", () => {
       "16x16 final positions:",
       sim.finalPositions.map((p) => `(${p.x},${p.y})`).join(", "),
     );
+    const remaining16 = [...sim.creatures];
+    console.log(
+      "16x16 remaining creatures:",
+      remaining16.length > 0 ? remaining16.map((k) => `(${k})`).join(", ") : "None",
+    );
   });
 
   it("should wrap correctly at boundary 15", () => {
@@ -306,6 +317,11 @@ describe("32x32 grid simulation", () => {
     console.log(
       "32x32 final positions:",
       sim.finalPositions.map((p) => `(${p.x},${p.y})`).join(", "),
+    );
+    const remaining32 = [...sim.creatures];
+    console.log(
+      "32x32 remaining creatures:",
+      remaining32.length > 0 ? remaining32.map((k) => `(${k})`).join(", ") : "None",
     );
   });
 

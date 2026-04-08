@@ -285,6 +285,13 @@
       " Final Zombie Positions:",
       sim.finalPositions.map((pos) => `(${pos.x}, ${pos.y})`).join(", "),
     );
+    const remaining = [...sim.creatures];
+    console.log(
+      " Remaining Creatures:",
+      remaining.length > 0
+        ? remaining.map((k) => `(${k})`).join(", ")
+        : "None",
+    );
     console.log(
       "\n Narendra, reporting live from the virtual world, with Camera person Claudia, over and out!",
     );
