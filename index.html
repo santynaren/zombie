@@ -446,8 +446,11 @@
 
 </div>
 
+<script src="main.js"></script>
 <script>
 (function () {
+  const { virtualWorld, moveZombie, getMoveDetails, defaultPremise } = ZombieSim;
+
   // ── DOM refs ──
   const elGridSize = document.getElementById('gridSize');
   const elZombieX = document.getElementById('zombieX');
@@ -468,31 +471,25 @@
   const elSummaryPositions = document.getElementById('summaryPositions');
 
   // ── State ──
-  let simState = 'idle'; // idle | running | done
   let abortSim = false;
 
   elSpeed.addEventListener('input', () => {
     elSpeedLabel.textContent = elSpeed.value + 'ms';
   });
 
-  elBtnClearLog.addEventListener('click', () => {
-    elLogBody.innerHTML = '';
-  });
-
+  elBtnClearLog.addEventListener('click', () => { elLogBody.innerHTML = ''; });
   elBtnReset.addEventListener('click', resetAll);
   elBtnRun.addEventListener('click', runSimulation);
 
   // ── Helpers ──
   function getDelay() { return parseInt(elSpeed.value, 10); }
-
   function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
   function setState(s) {
-    simState = s;
     elStateBadge.className = 'state-badge state-' + s;
     elStateBadge.textContent = s.toUpperCase();
     elBtnRun.disabled = s === 'running';
-    elBtnStep.disabled = true; // step mode not yet wired
+    elBtnStep.disabled = true;
   }
 
   function log(text, cls) {
@@ -521,41 +518,30 @@
       .filter(line => /^\d+\s*,\s*\d+$/.test(line))
       .map(line => {
         const [cx, cy] = line.split(',').map(Number);
-        return {
-          x: Math.max(0, Math.min(gridSize - 1, cx)),
-          y: Math.max(0, Math.min(gridSize - 1, cy))
-        };
+        return { x: Math.max(0, Math.min(gridSize - 1, cx)), y: Math.max(0, Math.min(gridSize - 1, cy)) };
       })
-      .filter(c => !(c.x === zx && c.y === zy)); // no creature on zombie
+      .filter(c => !(c.x === zx && c.y === zy));
 
     const movesRaw = elMoves.value.toUpperCase().replace(/[^RLUD]/g, '');
-
-    return {
-      grid: gridSize,
-      zombie: { x: zx, y: zy },
-      creatures,
-      moves: movesRaw
-    };
+    return { grid: gridSize, zombie: { x: zx, y: zy }, creatures, moves: movesRaw };
   }
 
-  // ── Grid Rendering ──
-  function renderGrid(gridSlots, gridSize) {
-    elGridContainer.style.gridTemplateColumns = `repeat(${gridSize}, 64px)`;
+  // ── Grid Rendering (DOM) ──
+  function renderGrid(sim, zombies) {
+    elGridContainer.style.gridTemplateColumns = `repeat(${sim.gridSize}, 64px)`;
     elGridContainer.innerHTML = '';
 
-    for (let y = 0; y < gridSize; y++) {
-      for (let x = 0; x < gridSize; x++) {
-        const slot = gridSlots.find(s => s.x === x && s.y === y);
+    for (let y = 0; y < sim.gridSize; y++) {
+      for (let x = 0; x < sim.gridSize; x++) {
+        const key = `${x},${y}`;
+        const isZombie = zombies.some(z => z.x === x && z.y === y);
+        const isCreature = sim.creatures.has(key);
+
         const cell = document.createElement('div');
-        cell.className = 'cell cell-' + slot.type;
+        cell.className = 'cell cell-' + (isZombie ? 'zombie' : isCreature ? 'creature' : 'empty');
         cell.dataset.x = x;
         cell.dataset.y = y;
-
-        let emoji = '';
-        if (slot.type === 'zombie') emoji = '🧟';
-        else if (slot.type === 'creature') emoji = '🐾';
-
-        cell.textContent = emoji;
+        cell.textContent = isZombie ? '🧟' : isCreature ? '🐾' : '';
 
         const coord = document.createElement('span');
         coord.className = 'cell-coord';
@@ -577,60 +563,7 @@
     }
   }
 
-  // ── Core Simulation Logic (mirrors main.js) ──
-
-  function gridCircularity(coordinate, direction, gridSize) {
-    if (direction === '+') return (coordinate + 1) % gridSize;
-    return (coordinate - 1 + gridSize) % gridSize;
-  }
-
-  function premiseSetup(premise) {
-    const gridSlots = [];
-    for (let y = 0; y < premise.grid; y++) {
-      for (let x = 0; x < premise.grid; x++) {
-        if (x === premise.zombie.x && y === premise.zombie.y) {
-          gridSlots.push({ x, y, type: 'zombie' });
-        } else if (premise.creatures.some(c => c.x === x && c.y === y)) {
-          gridSlots.push({ x, y, type: 'creature' });
-        } else {
-          gridSlots.push({ x, y, type: 'empty' });
-        }
-      }
-    }
-    return gridSlots;
-  }
-
-  function moveZombies(gridSlots, axis, direction, gridSize, zombieQueue, infectedSet) {
-    const zombies = gridSlots.filter(s => s.type === 'zombie');
-    const newZombiePositions = [];
-    const infections = [];
-
-    for (const zombie of zombies) {
-      const newCoord = gridCircularity(zombie[axis], direction, gridSize);
-      const newX = axis === 'x' ? newCoord : zombie.x;
-      const newY = axis === 'y' ? newCoord : zombie.y;
-      newZombiePositions.push({ oldSlot: zombie, newX, newY });
-    }
-
-    for (const { oldSlot, newX, newY } of newZombiePositions) {
-      const targetSlot = gridSlots.find(s => s.x === newX && s.y === newY);
-      if (targetSlot.type === 'creature') {
-        infections.push({ x: newX, y: newY });
-        oldSlot.type = 'empty';
-        targetSlot.type = 'zombie';
-        zombieQueue.push({ x: newX, y: newY });
-        infectedSet.add(`${newX},${newY}`);
-      } else {
-        oldSlot.type = 'empty';
-        targetSlot.type = 'zombie';
-      }
-    }
-
-    return infections;
-  }
-
   // ── Simulation Runner ──
-
   async function runSimulation() {
     abortSim = false;
     setState('running');
@@ -639,17 +572,13 @@
     elLogBody.innerHTML = '';
 
     const premise = parseInputs();
-    const { grid: gridSize, moves } = premise;
-
-    if (moves.length === 0) {
+    if (premise.moves.length === 0) {
       log('⚠ No valid moves provided.', 'log-news');
       setState('idle');
       return;
     }
 
-    const zombieQueue = [];
-    const infectedSet = new Set();
-    const finalPositions = [];
+    const sim = createSimulation(premise);
 
     log('🧟 Welcome to the Zombie Apocalypse!', 'log-news');
     await delay(getDelay());
@@ -659,46 +588,36 @@
     await delay(getDelay());
     if (abortSim) return;
 
-    // Initial grid
-    let gridSlots = premiseSetup(premise);
-    log(`📐 Grid: ${gridSize}×${gridSize} | Zombie at (${premise.zombie.x},${premise.zombie.y}) | ${premise.creatures.length} creatures`, 'log-news');
-    renderGrid(gridSlots, gridSize);
+    log(`📐 Grid: ${sim.gridSize}×${sim.gridSize} | Zombie at (${premise.zombie.x},${premise.zombie.y}) | ${premise.creatures.length} creatures`, 'log-news');
+    renderGrid(sim, [sim.zombieQueue[0]]);
     elStepInfo.innerHTML = `Initial state — <strong>${premise.creatures.length}</strong> creatures, <strong>1</strong> zombie`;
     await delay(getDelay());
 
-    // Process moves for the first zombie
-    await processMoves(moves, gridSlots, gridSize, zombieQueue, infectedSet, finalPositions, 'Original Zombie');
+    // First zombie
+    const firstZombie = sim.zombieQueue.shift();
+    await processZombieMoves(sim, firstZombie, 'Original Zombie');
 
-    // Process queue
+    // Queue
     let queueIndex = 0;
-    while (zombieQueue.length > 0) {
+    while (sim.zombieQueue.length > 0) {
       if (abortSim) return;
-      const infectedZombie = zombieQueue.shift();
+      const infectedZombie = sim.zombieQueue.shift();
       queueIndex++;
       await delay(getDelay());
       log(`\n⚡ Infected zombie #${queueIndex} awakens at (${infectedZombie.x},${infectedZombie.y})!`, 'log-queue');
-
-      const updatedPremise = {
-        ...premise,
-        zombie: { x: infectedZombie.x, y: infectedZombie.y },
-        creatures: premise.creatures.filter(c => !infectedSet.has(`${c.x},${c.y}`))
-      };
-
-      const newGridSlots = premiseSetup(updatedPremise);
-      renderGrid(newGridSlots, gridSize);
+      renderGrid(sim, [infectedZombie]);
       await delay(getDelay());
-      await processMoves(moves, newGridSlots, gridSize, zombieQueue, infectedSet, finalPositions, `Zombie #${queueIndex}`);
+      await processZombieMoves(sim, infectedZombie, `Zombie #${queueIndex}`);
     }
 
     // Done
     log('', 'log-news');
     log('💀 The world has been overrun! All creatures are now zombies.', 'log-result');
-    log(`Final zombie positions: ${finalPositions.map(p => `(${p.x},${p.y})`).join(', ')}`, 'log-result');
+    log(`Final zombie positions: ${sim.finalPositions.map(p => `(${p.x},${p.y})`).join(', ')}`, 'log-result');
     log('📺 Narendra, reporting live. Camera person Claudia — over and out!', 'log-news');
 
-    // Summary
     elSummaryPositions.innerHTML = '';
-    for (const pos of finalPositions) {
+    for (const pos of sim.finalPositions) {
       const tag = document.createElement('span');
       tag.className = 'summary-pos';
       tag.textContent = `(${pos.x}, ${pos.y})`;
@@ -706,39 +625,32 @@
     }
     elSummaryPanel.classList.add('visible');
 
-    elStepInfo.innerHTML = `<strong>Simulation complete</strong> — ${finalPositions.length} zombies`;
+    elStepInfo.innerHTML = `<strong>Simulation complete</strong> — ${sim.finalPositions.length} zombies`;
     setState('done');
   }
 
-  async function processMoves(moves, gridSlots, gridSize, zombieQueue, infectedSet, finalPositions, zombieLabel) {
-    for (let i = 0; i < moves.length; i++) {
+  async function processZombieMoves(sim, zombie, zombieLabel) {
+    for (let i = 0; i < sim.moves.length; i++) {
       if (abortSim) return;
-      const move = moves[i];
-      const direction = move === 'R' ? 'east' : move === 'L' ? 'west' : move === 'D' ? 'south' : 'north';
-      const axisMap = { R: ['x', '+'], L: ['x', '-'], D: ['y', '+'], U: ['y', '-'] };
-      const [axis, dir] = axisMap[move];
+      const move = sim.moves[i];
+      const details = getMoveDetails(move);
+      if (!details) continue;
 
-      log(`➡ ${zombieLabel} moves ${direction} (${move}) [step ${i + 1}/${moves.length}]`, 'log-move');
-      const infections = moveZombies(gridSlots, axis, dir, gridSize, zombieQueue, infectedSet);
+      log(`➡ ${zombieLabel} moves ${details.label} (${move}) [step ${i + 1}/${sim.moves.length}]`, 'log-move');
+      const result = moveZombie(sim, zombie, details.axis, details.direction);
 
-      for (const inf of infections) {
-        log(`🩸 Creature infected at (${inf.x},${inf.y})!`, 'log-infect');
-        highlightCell(inf.x, inf.y, 'cell-infecting');
+      if (result.infected) {
+        log(`🩸 Creature infected at (${result.x},${result.y})!`, 'log-infect');
+        highlightCell(result.x, result.y, 'cell-infecting');
       }
 
-      renderGrid(gridSlots, gridSize);
-      const zombieCount = gridSlots.filter(s => s.type === 'zombie').length;
-      const creatureCount = gridSlots.filter(s => s.type === 'creature').length;
-      elStepInfo.innerHTML = `${zombieLabel} — Move <strong>${i + 1}/${moves.length}</strong> (${move}) | 🧟 ${zombieCount} | 🐾 ${creatureCount}`;
+      renderGrid(sim, [zombie]);
+      elStepInfo.innerHTML = `${zombieLabel} — Move <strong>${i + 1}/${sim.moves.length}</strong> (${move}) | 🧟 ${sim.infectedSet.size + 1} | 🐾 ${sim.creatures.size}`;
 
       await delay(getDelay());
     }
 
-    // Record final positions of all zombies on this grid
-    const zombies = gridSlots.filter(s => s.type === 'zombie');
-    for (const z of zombies) {
-      finalPositions.push({ x: z.x, y: z.y });
-    }
+    sim.finalPositions.push({ x: zombie.x, y: zombie.y });
   }
 
   function resetAll() {
@@ -754,8 +666,8 @@
   // ── Initialize with default grid ──
   (function init() {
     const premise = parseInputs();
-    const gridSlots = premiseSetup(premise);
-    renderGrid(gridSlots, premise.grid);
+    const sim = createSimulation(premise);
+    renderGrid(sim, [sim.zombieQueue[0]]);
   })();
 
 })();
