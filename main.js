@@ -16,6 +16,9 @@ const initalPremise = {
   moves: "RDRU",
 };
 
+let zombieCount = 1;
+const newCreatureInfectedZombies = [];
+const allInfectedPositions = [];
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function main() {
@@ -29,8 +32,35 @@ async function main() {
   //   await delay(1500);
   const gridSlots = premiseSetup(initalPremise);
   console.log("Initial state:");
-  renderGrid(gridSlots);
-  triggerActionMoves(initalPremise.moves, gridSlots);
+  await renderGrid(gridSlots);
+  await triggerActionMoves(initalPremise.moves, gridSlots);
+
+  while (newCreatureInfectedZombies.length > 0) {
+   
+    const infectedZombie = newCreatureInfectedZombies.shift();
+    console.log(
+      `\n--- New zombie at (${infectedZombie.x}, ${infectedZombie.y}) now runs moves ---`,
+    );
+
+    const updatedPremise = {
+      ...initalPremise,
+      zombie: { x: infectedZombie.x, y: infectedZombie.y },
+      creatures: initalPremise.creatures.filter(
+        (c) => !allInfectedPositions.some((z) => z.x === c.x && z.y === c.y),
+      ),
+    };
+
+    const newGridSlots = premiseSetup(updatedPremise);
+    console.log("Updated grid:");
+    renderGrid(newGridSlots);
+    await triggerActionMoves(initalPremise.moves, newGridSlots);
+  }
+
+  console.log("\n All zombies done. No more creatures to infect.");
+  console.log(
+    " Final Zombie Positions:",
+    finalZombiePositions.map((pos) => `(${pos.x}, ${pos.y})`).join(", "),
+  );
 }
 
 const premiseSetup = (premise) => {
@@ -81,7 +111,10 @@ const triggerActionMoves = async (moves, gridSlots) => {
           : move === "D"
             ? "south"
             : "north";
-    console.log("\n Oh noooo now Zombie is moving towards ...", direction + "!");
+    console.log(
+      "\n Oh noooo now Zombie is moving towards ...",
+      direction + "!",
+    );
     switch (move) {
       case "R":
         moveZombies(gridSlots, "x", "+");
@@ -103,9 +136,17 @@ const triggerActionMoves = async (moves, gridSlots) => {
         console.log("Invalid move:", move);
     }
     renderGrid(gridSlots);
+    //push the finalZombiPosition after the last move is done
+    if (move === moves[moves.length - 1]) {
+      const zombies = gridSlots.filter((slot) => slot.type === "zombie");
+      for (const zombie of zombies) {
+        finalZombiePositions.push({ x: zombie.x, y: zombie.y });
+      }
+    }
   }
 };
 
+const finalZombiePositions = [];
 const moveZombies = (gridSlots, axis, direction) => {
   const zombies = gridSlots.filter((slot) => slot.type === "zombie");
   const newZombiePositions = [];
@@ -121,8 +162,17 @@ const moveZombies = (gridSlots, axis, direction) => {
     const targetSlot = gridSlots.find((s) => s.x === newX && s.y === newY);
     if (targetSlot.type === "creature") {
       console.log(`Zombie infected creature at (${newX}, ${newY})!`);
+      zombieCount++;
+      console.log(
+        "Seems the acopalypeses, continues, lets see the zombie",
+        zombieCount,
+      );
+
       oldSlot.type = "empty";
       targetSlot.type = "zombie";
+
+      newCreatureInfectedZombies.push({ x: newX, y: newY });
+      allInfectedPositions.push({ x: newX, y: newY });
     } else {
       oldSlot.type = "empty";
       targetSlot.type = "zombie";
