@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zombie Apocalypse Simulator</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Menlo', 'Consolas', 'Courier New', monospace;
+      background: #0d1117;
+      color: #c9d1d9;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #e6edf3;
+    }
+
+    header h1 span { color: #f85149; }
+
+    .main-layout {
+      display: grid;
+      grid-template-columns: 300px 1fr 360px;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Left Panel: Controls ── */
+    .panel-controls {
+      background: #161b22;
+      border-right: 1px solid #30363d;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .panel-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: #8b949e;
+      margin-bottom: 4px;
+    }
+
+    .field { display: flex; flex-direction: column; gap: 6px; }
+
+    .field label {
+      font-size: 12px;
+      color: #8b949e;
+    }
+
+    .field input, .field textarea {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 8px 10px;
+      color: #e6edf3;
+      font-family: inherit;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .field input:focus, .field textarea:focus {
+      border-color: #58a6ff;
+    }
+
+    .field textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .inline-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .btn {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: #f85149;
+      color: #fff;
+    }
+
+    .btn-primary:hover:not(:disabled) { background: #da3633; }
+
+    .btn-secondary {
+      background: #21262d;
+      color: #c9d1d9;
+      border: 1px solid #30363d;
+    }
+
+    .btn-secondary:hover:not(:disabled) { background: #30363d; }
+
+    .btn-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-group .btn { flex: 1; }
+
+    .speed-control {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .speed-control input[type="range"] {
+      flex: 1;
+      accent-color: #f85149;
+    }
+
+    .speed-label {
+      font-size: 12px;
+      color: #8b949e;
+      min-width: 42px;
+      text-align: right;
+    }
+
+    .state-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .state-idle { background: #21262d; color: #8b949e; }
+    .state-running { background: #1a3a1a; color: #3fb950; }
+    .state-done { background: #3a1a1a; color: #f85149; }
+
+    /* ── Center: Grid ── */
+    .panel-grid {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      gap: 20px;
+      position: relative;
+    }
+
+    .grid-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .step-info {
+      font-size: 13px;
+      color: #8b949e;
+    }
+
+    .step-info strong { color: #e6edf3; }
+
+    .grid-container {
+      display: grid;
+      gap: 3px;
+      perspective: 600px;
+    }
+
+    .cell {
+      width: 64px;
+      height: 64px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      transition: background 0.25s, transform 0.25s, box-shadow 0.25s;
+      position: relative;
+      user-select: none;
+    }
+
+    .cell-empty {
+      background: #161b22;
+      border: 1px solid #21262d;
+    }
+
+    .cell-zombie {
+      background: #3a1a1a;
+      border: 1px solid #f85149;
+      box-shadow: 0 0 12px rgba(248, 81, 73, 0.3);
+      animation: zombiePulse 1.2s ease-in-out infinite;
+    }
+
+    .cell-creature {
+      background: #1a3a1a;
+      border: 1px solid #3fb950;
+      box-shadow: 0 0 8px rgba(63, 185, 80, 0.2);
+    }
+
+    .cell-infecting {
+      animation: infect 0.5s ease-out;
+    }
+
+    @keyframes zombiePulse {
+      0%, 100% { box-shadow: 0 0 12px rgba(248, 81, 73, 0.3); }
+      50% { box-shadow: 0 0 20px rgba(248, 81, 73, 0.6); }
+    }
+
+    @keyframes infect {
+      0% { transform: scale(1.3); background: #f0e040; }
+      100% { transform: scale(1); }
+    }
+
+    .cell-coord {
+      position: absolute;
+      bottom: 2px;
+      right: 4px;
+      font-size: 9px;
+      color: #484f58;
+    }
+
+    .legend {
+      display: flex;
+      gap: 20px;
+      font-size: 12px;
+      color: #8b949e;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-swatch {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+    }
+
+    /* ── Right Panel: Log ── */
+    .panel-log {
+      background: #161b22;
+      border-left: 1px solid #30363d;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .log-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #30363d;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .log-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .log-entry {
+      font-size: 12px;
+      line-height: 1.5;
+      padding: 4px 8px;
+      border-radius: 4px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .log-news { color: #79c0ff; }
+    .log-move { color: #d2a8ff; }
+    .log-infect { color: #f85149; font-weight: 600; background: rgba(248, 81, 73, 0.08); }
+    .log-grid { color: #484f58; font-family: inherit; white-space: pre; }
+    .log-result { color: #3fb950; font-weight: 600; background: rgba(63, 185, 80, 0.08); }
+    .log-queue { color: #e3b341; }
+
+    .summary-panel {
+      border-top: 1px solid #30363d;
+      padding: 16px 20px;
+      display: none;
+    }
+
+    .summary-panel.visible { display: block; }
+
+    .summary-panel h3 {
+      font-size: 12px;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .summary-positions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .summary-pos {
+      background: #3a1a1a;
+      border: 1px solid #f85149;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #f85149;
+      font-weight: 600;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 1100px) {
+      .main-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr auto;
+      }
+      .panel-controls {
+        border-right: none;
+        border-bottom: 1px solid #30363d;
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
+      .panel-log {
+        border-left: none;
+        border-top: 1px solid #30363d;
+        max-height: 300px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🧟 <span>Zombie</span> Apocalypse Simulator</h1>
+  <span class="state-badge state-idle" id="stateBadge">IDLE</span>
+</header>
+
+<div class="main-layout">
+
+  <!-- ── Left: Controls ── -->
+  <div class="panel-controls">
+    <div class="panel-title">Configuration</div>
+
+    <div class="field">
+      <label for="gridSize">Grid Size</label>
+      <input type="number" id="gridSize" value="4" min="2" max="20">
+    </div>
+
+    <div class="field">
+      <label>Zombie Start (x, y)</label>
+      <div class="inline-fields">
+        <input type="number" id="zombieX" value="3" min="0">
+        <input type="number" id="zombieY" value="1" min="0">
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="creatures">Creatures (one per line: x,y)</label>
+      <textarea id="creatures" rows="3">0,1
+1,2
+1,1</textarea>
+    </div>
+
+    <div class="field">
+      <label for="moves">Move Sequence (R/L/U/D)</label>
+      <input type="text" id="moves" value="RDRU" maxlength="100" style="text-transform: uppercase;">
+    </div>
+
+    <div class="panel-title" style="margin-top: 8px;">Playback</div>
+
+    <div class="speed-control">
+      <label style="font-size: 12px; color: #8b949e;">Speed</label>
+      <input type="range" id="speed" min="100" max="2000" value="800" step="100">
+      <span class="speed-label" id="speedLabel">800ms</span>
+    </div>
+
+    <div class="btn-group">
+      <button class="btn btn-primary" id="btnRun">▶ Run</button>
+      <button class="btn btn-secondary" id="btnStep" disabled>⏭ Step</button>
+    </div>
+
+    <button class="btn btn-secondary" id="btnReset">↺ Reset</button>
+  </div>
+
+  <!-- ── Center: Grid ── -->
+  <div class="panel-grid">
+    <div class="grid-header">
+      <span class="step-info" id="stepInfo">Set up your parameters and hit <strong>Run</strong></span>
+    </div>
+    <div class="grid-container" id="gridContainer"></div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-swatch" style="background:#3a1a1a;border:1px solid #f85149;"></div> Zombie</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#1a3a1a;border:1px solid #3fb950;"></div> Creature</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#161b22;border:1px solid #21262d;"></div> Empty</div>
+    </div>
+  </div>
+
+  <!-- ── Right: Log ── -->
+  <div class="panel-log">
+    <div class="log-header">
+      <span class="panel-title" style="margin: 0;">Live News Feed</span>
+      <button class="btn btn-secondary" id="btnClearLog" style="padding: 4px 10px; font-size: 11px;">Clear</button>
+    </div>
+    <div class="log-body" id="logBody">
+      <div class="log-entry log-news">Awaiting simulation start...</div>
+    </div>
+    <div class="summary-panel" id="summaryPanel">
+      <h3>Final Zombie Positions</h3>
+      <div class="summary-positions" id="summaryPositions"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  // ── DOM refs ──
+  const elGridSize = document.getElementById('gridSize');
+  const elZombieX = document.getElementById('zombieX');
+  const elZombieY = document.getElementById('zombieY');
+  const elCreatures = document.getElementById('creatures');
+  const elMoves = document.getElementById('moves');
+  const elSpeed = document.getElementById('speed');
+  const elSpeedLabel = document.getElementById('speedLabel');
+  const elBtnRun = document.getElementById('btnRun');
+  const elBtnStep = document.getElementById('btnStep');
+  const elBtnReset = document.getElementById('btnReset');
+  const elBtnClearLog = document.getElementById('btnClearLog');
+  const elGridContainer = document.getElementById('gridContainer');
+  const elStepInfo = document.getElementById('stepInfo');
+  const elLogBody = document.getElementById('logBody');
+  const elStateBadge = document.getElementById('stateBadge');
+  const elSummaryPanel = document.getElementById('summaryPanel');
+  const elSummaryPositions = document.getElementById('summaryPositions');
+
+  // ── State ──
+  let simState = 'idle'; // idle | running | done
+  let abortSim = false;
+
+  elSpeed.addEventListener('input', () => {
+    elSpeedLabel.textContent = elSpeed.value + 'ms';
+  });
+
+  elBtnClearLog.addEventListener('click', () => {
+    elLogBody.innerHTML = '';
+  });
+
+  elBtnReset.addEventListener('click', resetAll);
+  elBtnRun.addEventListener('click', runSimulation);
+
+  // ── Helpers ──
+  function getDelay() { return parseInt(elSpeed.value, 10); }
+
+  function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  function setState(s) {
+    simState = s;
+    elStateBadge.className = 'state-badge state-' + s;
+    elStateBadge.textContent = s.toUpperCase();
+    elBtnRun.disabled = s === 'running';
+    elBtnStep.disabled = true; // step mode not yet wired
+  }
+
+  function log(text, cls) {
+    const el = document.createElement('div');
+    el.className = 'log-entry ' + (cls || 'log-news');
+    el.textContent = text;
+    elLogBody.appendChild(el);
+    elLogBody.scrollTop = elLogBody.scrollHeight;
+  }
+
+  function sanitizeInt(val, min, max, fallback) {
+    const n = parseInt(val, 10);
+    if (isNaN(n)) return fallback;
+    return Math.max(min, Math.min(max, n));
+  }
+
+  // ── Parse Inputs ──
+  function parseInputs() {
+    const gridSize = sanitizeInt(elGridSize.value, 2, 20, 4);
+    const zx = sanitizeInt(elZombieX.value, 0, gridSize - 1, 0);
+    const zy = sanitizeInt(elZombieY.value, 0, gridSize - 1, 0);
+
+    const creatures = elCreatures.value
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => /^\d+\s*,\s*\d+$/.test(line))
+      .map(line => {
+        const [cx, cy] = line.split(',').map(Number);
+        return {
+          x: Math.max(0, Math.min(gridSize - 1, cx)),
+          y: Math.max(0, Math.min(gridSize - 1, cy))
+        };
+      })
+      .filter(c => !(c.x === zx && c.y === zy)); // no creature on zombie
+
+    const movesRaw = elMoves.value.toUpperCase().replace(/[^RLUD]/g, '');
+
+    return {
+      grid: gridSize,
+      zombie: { x: zx, y: zy },
+      creatures,
+      moves: movesRaw
+    };
+  }
+
+  // ── Grid Rendering ──
+  function renderGrid(gridSlots, gridSize) {
+    elGridContainer.style.gridTemplateColumns = `repeat(${gridSize}, 64px)`;
+    elGridContainer.innerHTML = '';
+
+    for (let y = 0; y < gridSize; y++) {
+      for (let x = 0; x < gridSize; x++) {
+        const slot = gridSlots.find(s => s.x === x && s.y === y);
+        const cell = document.createElement('div');
+        cell.className = 'cell cell-' + slot.type;
+        cell.dataset.x = x;
+        cell.dataset.y = y;
+
+        let emoji = '';
+        if (slot.type === 'zombie') emoji = '🧟';
+        else if (slot.type === 'creature') emoji = '🐾';
+
+        cell.textContent = emoji;
+
+        const coord = document.createElement('span');
+        coord.className = 'cell-coord';
+        coord.textContent = `${x},${y}`;
+        cell.appendChild(coord);
+
+        elGridContainer.appendChild(cell);
+      }
+    }
+  }
+
+  function highlightCell(x, y, cls) {
+    const cells = elGridContainer.querySelectorAll('.cell');
+    for (const c of cells) {
+      if (c.dataset.x == x && c.dataset.y == y) {
+        c.classList.add(cls);
+        setTimeout(() => c.classList.remove(cls), 500);
+      }
+    }
+  }
+
+  // ── Core Simulation Logic (mirrors main.js) ──
+
+  function gridCircularity(coordinate, direction, gridSize) {
+    if (direction === '+') return (coordinate + 1) % gridSize;
+    return (coordinate - 1 + gridSize) % gridSize;
+  }
+
+  function premiseSetup(premise) {
+    const gridSlots = [];
+    for (let y = 0; y < premise.grid; y++) {
+      for (let x = 0; x < premise.grid; x++) {
+        if (x === premise.zombie.x && y === premise.zombie.y) {
+          gridSlots.push({ x, y, type: 'zombie' });
+        } else if (premise.creatures.some(c => c.x === x && c.y === y)) {
+          gridSlots.push({ x, y, type: 'creature' });
+        } else {
+          gridSlots.push({ x, y, type: 'empty' });
+        }
+      }
+    }
+    return gridSlots;
+  }
+
+  function moveZombies(gridSlots, axis, direction, gridSize, zombieQueue, infectedSet) {
+    const zombies = gridSlots.filter(s => s.type === 'zombie');
+    const newZombiePositions = [];
+    const infections = [];
+
+    for (const zombie of zombies) {
+      const newCoord = gridCircularity(zombie[axis], direction, gridSize);
+      const newX = axis === 'x' ? newCoord : zombie.x;
+      const newY = axis === 'y' ? newCoord : zombie.y;
+      newZombiePositions.push({ oldSlot: zombie, newX, newY });
+    }
+
+    for (const { oldSlot, newX, newY } of newZombiePositions) {
+      const targetSlot = gridSlots.find(s => s.x === newX && s.y === newY);
+      if (targetSlot.type === 'creature') {
+        infections.push({ x: newX, y: newY });
+        oldSlot.type = 'empty';
+        targetSlot.type = 'zombie';
+        zombieQueue.push({ x: newX, y: newY });
+        infectedSet.add(`${newX},${newY}`);
+      } else {
+        oldSlot.type = 'empty';
+        targetSlot.type = 'zombie';
+      }
+    }
+
+    return infections;
+  }
+
+  // ── Simulation Runner ──
+
+  async function runSimulation() {
+    abortSim = false;
+    setState('running');
+    elSummaryPanel.classList.remove('visible');
+    elSummaryPositions.innerHTML = '';
+    elLogBody.innerHTML = '';
+
+    const premise = parseInputs();
+    const { grid: gridSize, moves } = premise;
+
+    if (moves.length === 0) {
+      log('⚠ No valid moves provided.', 'log-news');
+      setState('idle');
+      return;
+    }
+
+    const zombieQueue = [];
+    const infectedSet = new Set();
+    const finalPositions = [];
+
+    log('🧟 Welcome to the Zombie Apocalypse!', 'log-news');
+    await delay(getDelay());
+    if (abortSim) return;
+
+    log('📡 Reporting live — our virtual world is under attack by zombies!', 'log-news');
+    await delay(getDelay());
+    if (abortSim) return;
+
+    // Initial grid
+    let gridSlots = premiseSetup(premise);
+    log(`📐 Grid: ${gridSize}×${gridSize} | Zombie at (${premise.zombie.x},${premise.zombie.y}) | ${premise.creatures.length} creatures`, 'log-news');
+    renderGrid(gridSlots, gridSize);
+    elStepInfo.innerHTML = `Initial state — <strong>${premise.creatures.length}</strong> creatures, <strong>1</strong> zombie`;
+    await delay(getDelay());
+
+    // Process moves for the first zombie
+    await processMoves(moves, gridSlots, gridSize, zombieQueue, infectedSet, finalPositions, 'Original Zombie');
+
+    // Process queue
+    let queueIndex = 0;
+    while (zombieQueue.length > 0) {
+      if (abortSim) return;
+      const infectedZombie = zombieQueue.shift();
+      queueIndex++;
+      await delay(getDelay());
+      log(`\n⚡ Infected zombie #${queueIndex} awakens at (${infectedZombie.x},${infectedZombie.y})!`, 'log-queue');
+
+      const updatedPremise = {
+        ...premise,
+        zombie: { x: infectedZombie.x, y: infectedZombie.y },
+        creatures: premise.creatures.filter(c => !infectedSet.has(`${c.x},${c.y}`))
+      };
+
+      const newGridSlots = premiseSetup(updatedPremise);
+      renderGrid(newGridSlots, gridSize);
+      await delay(getDelay());
+      await processMoves(moves, newGridSlots, gridSize, zombieQueue, infectedSet, finalPositions, `Zombie #${queueIndex}`);
+    }
+
+    // Done
+    log('', 'log-news');
+    log('💀 The world has been overrun! All creatures are now zombies.', 'log-result');
+    log(`Final zombie positions: ${finalPositions.map(p => `(${p.x},${p.y})`).join(', ')}`, 'log-result');
+    log('📺 Narendra, reporting live. Camera person Claudia — over and out!', 'log-news');
+
+    // Summary
+    elSummaryPositions.innerHTML = '';
+    for (const pos of finalPositions) {
+      const tag = document.createElement('span');
+      tag.className = 'summary-pos';
+      tag.textContent = `(${pos.x}, ${pos.y})`;
+      elSummaryPositions.appendChild(tag);
+    }
+    elSummaryPanel.classList.add('visible');
+
+    elStepInfo.innerHTML = `<strong>Simulation complete</strong> — ${finalPositions.length} zombies`;
+    setState('done');
+  }
+
+  async function processMoves(moves, gridSlots, gridSize, zombieQueue, infectedSet, finalPositions, zombieLabel) {
+    for (let i = 0; i < moves.length; i++) {
+      if (abortSim) return;
+      const move = moves[i];
+      const direction = move === 'R' ? 'east' : move === 'L' ? 'west' : move === 'D' ? 'south' : 'north';
+      const axisMap = { R: ['x', '+'], L: ['x', '-'], D: ['y', '+'], U: ['y', '-'] };
+      const [axis, dir] = axisMap[move];
+
+      log(`➡ ${zombieLabel} moves ${direction} (${move}) [step ${i + 1}/${moves.length}]`, 'log-move');
+      const infections = moveZombies(gridSlots, axis, dir, gridSize, zombieQueue, infectedSet);
+
+      for (const inf of infections) {
+        log(`🩸 Creature infected at (${inf.x},${inf.y})!`, 'log-infect');
+        highlightCell(inf.x, inf.y, 'cell-infecting');
+      }
+
+      renderGrid(gridSlots, gridSize);
+      const zombieCount = gridSlots.filter(s => s.type === 'zombie').length;
+      const creatureCount = gridSlots.filter(s => s.type === 'creature').length;
+      elStepInfo.innerHTML = `${zombieLabel} — Move <strong>${i + 1}/${moves.length}</strong> (${move}) | 🧟 ${zombieCount} | 🐾 ${creatureCount}`;
+
+      await delay(getDelay());
+    }
+
+    // Record final positions of all zombies on this grid
+    const zombies = gridSlots.filter(s => s.type === 'zombie');
+    for (const z of zombies) {
+      finalPositions.push({ x: z.x, y: z.y });
+    }
+  }
+
+  function resetAll() {
+    abortSim = true;
+    setState('idle');
+    elGridContainer.innerHTML = '';
+    elLogBody.innerHTML = '<div class="log-entry log-news">Awaiting simulation start...</div>';
+    elStepInfo.innerHTML = 'Set up your parameters and hit <strong>Run</strong>';
+    elSummaryPanel.classList.remove('visible');
+    elSummaryPositions.innerHTML = '';
+  }
+
+  // ── Initialize with default grid ──
+  (function init() {
+    const premise = parseInputs();
+    const gridSlots = premiseSetup(premise);
+    renderGrid(gridSlots, premise.grid);
+  })();
+
+})();
+</script>
+
+</body>
+</html>

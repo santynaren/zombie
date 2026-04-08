@@ -17,49 +17,56 @@ const initalPremise = {
 };
 
 let zombieCount = 1;
-const newCreatureInfectedZombies = [];
-const allInfectedPositions = [];
+const zombieQueue = [];
+const infectedSet = new Set();
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function main() {
-  //   console.log("Welcome to the Zombie Apocalypse!");
-  //   await delay(1500);
-  //   console.log("Your world is safe, but wait for the thrillllllll....");
-  //   await delay(2000);
-  //   console.log(
-  //     "Reporting from 9 News, following world is under attack by zombies:",
-  //   );
-  //   await delay(1500);
+  console.log("Welcome to the Zombie Apocalypse!");
+  await delay(1500);
+  console.log(
+    "Reporting from 9 News, our virtual world is under attack by zombies!!! Giving you live updates noww...",
+  );
+  await delay(1500);
   const gridSlots = premiseSetup(initalPremise);
-  console.log("Initial state:");
+  console.log(
+    "We do see our CBD, we do have the eyes on zombie, stay tuned...",
+  );
   await renderGrid(gridSlots);
   await triggerActionMoves(initalPremise.moves, gridSlots);
 
-  while (newCreatureInfectedZombies.length > 0) {
-   
-    const infectedZombie = newCreatureInfectedZombies.shift();
+  while (zombieQueue.length > 0) {
+    const infectedZombie = zombieQueue.shift();
+    await delay(1500);
     console.log(
-      `\n--- New zombie at (${infectedZombie.x}, ${infectedZombie.y}) now runs moves ---`,
+      `\n--- Now we saw an active zombie moving from (${infectedZombie.x}, ${infectedZombie.y}) towards the next target`,
     );
 
     const updatedPremise = {
       ...initalPremise,
       zombie: { x: infectedZombie.x, y: infectedZombie.y },
       creatures: initalPremise.creatures.filter(
-        (c) => !allInfectedPositions.some((z) => z.x === c.x && z.y === c.y),
+        (c) => !infectedSet.has(`${c.x},${c.y}`),
       ),
     };
 
     const newGridSlots = premiseSetup(updatedPremise);
-    console.log("Updated grid:");
+    console.log(
+      "\n Our lovely city is getting infected more and more, see the new zombie positions now...",
+    );
     renderGrid(newGridSlots);
     await triggerActionMoves(initalPremise.moves, newGridSlots);
   }
 
-  console.log("\n All zombies done. No more creatures to infect.");
+  console.log(
+    "\n World is taken over by zombies, we are doomed!!! but its just virtual, make your world better with Ailo Tool managing your world at peace :)",
+  );
   console.log(
     " Final Zombie Positions:",
     finalZombiePositions.map((pos) => `(${pos.x}, ${pos.y})`).join(", "),
+  );
+  console.log(
+    "\n Narendra, reporting live from the virtual world, with Camera person Claudia, over and out!",
   );
 }
 
@@ -163,16 +170,12 @@ const moveZombies = (gridSlots, axis, direction) => {
     if (targetSlot.type === "creature") {
       console.log(`Zombie infected creature at (${newX}, ${newY})!`);
       zombieCount++;
-      console.log(
-        "Seems the acopalypeses, continues, lets see the zombie",
-        zombieCount,
-      );
 
       oldSlot.type = "empty";
       targetSlot.type = "zombie";
 
-      newCreatureInfectedZombies.push({ x: newX, y: newY });
-      allInfectedPositions.push({ x: newX, y: newY });
+      zombieQueue.push({ x: newX, y: newY });
+      infectedSet.add(`${newX},${newY}`);
     } else {
       oldSlot.type = "empty";
       targetSlot.type = "zombie";
@@ -188,4 +191,18 @@ const gridCircularity = (coordinate, direction) => {
   }
 };
 
-main();
+if (require.main === module) {
+  main();
+}
+
+module.exports = {
+  grid,
+  premiseSetup,
+  renderGrid,
+  moveZombies,
+  gridCircularity,
+  triggerActionMoves,
+  zombieQueue,
+  infectedSet,
+  finalZombiePositions,
+};
